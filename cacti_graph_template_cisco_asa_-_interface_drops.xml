@@ -3,7 +3,7 @@
 		<name>Cisco ASA - Interface Drops</name>
 		<graph>
 			<t_title></t_title>
-			<title>Cisco ASA - Interface Drops</title>
+			<title>|host_description| - Cisco ASA - Interface Drops</title>
 			<t_image_format_id></t_image_format_id>
 			<image_format_id>1</image_format_id>
 			<t_height></t_height>
@@ -942,7 +942,7 @@
 		<name>Cisco ASA - Interface Drops</name>
 		<ds>
 			<t_name></t_name>
-			<name>Cisco ASA - Interface Drops</name>
+			<name>|host_description| - Cisco ASA - Interface Drops</name>
 			<data_input_id>hash_030024595d81d1cb7b0a77cec26015ec4c387c</data_input_id>
 			<t_rra_id></t_rra_id>
 			<t_rrd_step></t_rrd_step>
