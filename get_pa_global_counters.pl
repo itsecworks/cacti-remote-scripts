@@ -32,7 +32,7 @@
 # $ ./get_pa_global_counters.pl 10.13.13.1 qeUcrTG9Cdjc0QnU
 # -----------------------------------------------------------------------------------------------
 # Known issues:
-# 
+#
 # -----------------------------------------------------------------------------------------------
 # [solved]
 # -----------------------------------------------------------------------------------------------
@@ -46,17 +46,18 @@ use warnings;
 use URI::Escape;
 use LWP::UserAgent;  
 use HTTP::Request;
-use XML::LibXML; 
+use XML::LibXML;
 
-my $hostname	=	$ARGV[0]; # IP of the firewall
-my $httpskey	=	$ARGV[1]; # example 'vcxvert4rhhgfhf'
+my $hostname    =       $ARGV[0]; # IP of the firewall
+my $httpskey    =       $ARGV[1]; # example 'vcxvert4rhhgfhf'
 # command without URL encoding
-my $command		=	"<show><counter><global><filter><value>non-zero</value></filter></global></counter></show>";
+my $command             =       "<show><counter><global><filter><delta>yes</delta></filter></global></counter></show>";
 # command with URL encoding. See http://url-encoder.de/
 my $urlcommand = uri_escape($command);
 my $URL = 'https://'.$hostname.'/api/?type=op&key='.$httpskey.'&cmd='.$urlcommand;
 
-#aspect
+# aspects
+# awk '{print $5,$4,$1}' pa_counters_test.txt | sort -k3,3 -k2,2 | cut -d" " -f1,2 | sort | uniq -c | awk '{print $2,$3,$1}'
 #  aa         HA Active/Active mode
 #  arp        ARP procesing
 #  dos        DoS protection
@@ -75,8 +76,10 @@ my $URL = 'https://'.$hostname.'/api/?type=op&key='.$httpskey.'&cmd='.$urlcomman
 #  system     System function
 #  tunnel     Tunnel encryption/decryption
 #
-my @aspects	= ("aa","arp","dos","forward","ipfrag","ipsec","mgmt","mld","nd","offload","parse","pktproc","qos","resource","session","system","tunnel");
-#category
+my @aspects     = ("aa","arp","dos","forward","ipfrag","ipsec","mgmt","mld","nd","offload","parse","pktproc","qos","resource","session","system","tunnel");
+
+# categories
+# awk '{print $6,$4,$1}' pa_counters_test.txt | sort -k3,3 -k2,2 | cut -d" " -f1,2 | sort | uniq -c | awk '{print $2,$3,$1}'
 #  aho       AHO match engine
 #  appid     Application-Identification
 #  ctd       Content-Identification
@@ -97,34 +100,29 @@ my @aspects	= ("aa","arp","dos","forward","ipfrag","ipsec","mgmt","mld","nd","of
 #  url       URL filtering
 #  zip       ZIP processing
 #
-my @categories	= ("aho","appid","ctd","dfa","dlp","flow","fpga","ha","log","nat","packet","proxy","session","ssh","ssl","tcp","uid","url","zip");
+my @categories  = ("aho","appid","ctd","dfa","dlp","flow","fpga","ha","log","nat","packet","proxy","session","ssh","ssl","tcp","uid","url","zip");
+
 #severity
 #  drop     Drop
 #  error    Error
 #  info     Informational
 #  warn     Warning
 #
-my @severities	= ("drop","error","info","warn");
-
-# aspect
-# awk '{a=$1;b=$4;c=$5;d=$6;$1=$2=$3=$4=$5=$6="";print c,b,a}' pa_counters_test.txt | sort -k3,3 -k2,2 | cut -d" " -f1,2 | sort | uniq -c | awk '{print $2,$3,$1}'
-# cat
-# awk '{a=$1;b=$4;c=$5;d=$6;$1=$2=$3=$4=$5=$6="";print d,b,a}' pa_counters_test.txt | sort -k3,3 -k2,2 | cut -d" " -f1,2 | sort | uniq -c | awk '{print $2,$3,$1}'
+my @severities  = ("drop","error","info","warn");
+my $xml_string;
 
 my $ua = LWP::UserAgent->new(ssl_opts => { verify_hostname => 0 });
-
 my $header = HTTP::Request->new(GET => $URL);  
 my $request = HTTP::Request->new('GET', $URL, $header);  
 my $response = $ua->request($request);  
 
-my $xml_string;
 if ($response->is_success){  
-	# input the xml content into var
-	$xml_string = $response->content;
+        # input the xml content into var
+        $xml_string = $response->content;
 }
 elsif ($response->is_error){  
-	print "Error:$URL\n";  
-	print $response->error_as_HTML;  
+        print "Error:$URL\n";  
+        print $response->error_as_HTML;  
 }
 
 my $parser = XML::LibXML->new();
@@ -132,17 +130,29 @@ my $parser = XML::LibXML->new();
 my $xmlfile = XML::LibXML->load_xml(string => $xml_string);
 
 foreach my $aspect (@aspects) {
-	foreach my $severity (@severities) {
-		my $xpath  = "//entry[name/text() = '$interface']/$if_counter/text()"; # xpath_expression (query)
-		# findvalue function from XML::LibXML::Node Package
-		print $interface,"-",$if_counter,": ",$xmlfile->findvalue($xpath)," ";
-	}
+        foreach my $severity (@severities) {
+                my $xpath  = "//entry[aspect/text() = '$aspect' and severity/text() = '$severity']/value/text()"; # xpath_expression (query)
+                my $sum = 0;
+				# findnodes function from XML::LibXML::Node Package
+                my @nodes = $xmlfile->findnodes($xpath);
+				#foreach my $value (@nodes) {
+				#	$sum += $value;
+				#}
+				# did not work... :-(
+				$sum = eval join '+', @nodes;
+				$sum += 0;
+				print $aspect,"-",$severity,": ",$sum,"\n";
+        }
 }
-foreach my $aspect (@aspects) {
-	foreach my $severity (@severities) {
-		my $xpath  = "//entry[name/text() = '$interface']/$if_counter/text()"; # xpath_expression (query)
-		# findvalue function from XML::LibXML::Node Package
-		print $interface,"-",$if_counter,": ",$xmlfile->findvalue($xpath)," ";
-	}
+foreach my $category (@categories) {
+        foreach my $severity (@severities) {
+                my $xpath  = "//entry[category/text() = '$category' and severity/text() = '$severity']/value/text()"; # xpath_expression (query)
+                my $sum = 0;
+				# findvalue function from XML::LibXML::Node Package
+				my @nodes = $xmlfile->findnodes($xpath);
+				$sum = eval join '+', @nodes;
+				$sum += 0;
+				print $category,"-",$severity,": ",$sum,"\n";
+        }
 }
 print "\n";
