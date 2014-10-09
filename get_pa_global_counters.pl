@@ -130,7 +130,9 @@ my $parser = XML::LibXML->new();
 my $xmlfile = XML::LibXML->load_xml(string => $xml_string);
 
 foreach my $aspect (@aspects) {
-        foreach my $severity (@severities) {
+		my $sum_err;
+		my $sum_dr;
+		foreach my $severity (@severities) {
                 my $xpath  = "//entry[aspect/text() = '$aspect' and severity/text() = '$severity']/value/text()"; # xpath_expression (query)
                 my $sum = 0;
 				# findnodes function from XML::LibXML::Node Package
@@ -138,21 +140,43 @@ foreach my $aspect (@aspects) {
 				#foreach my $value (@nodes) {
 				#	$sum += $value;
 				#}
-				# did not work... :-(
+				# did not work... :-(, have to use eval join.
 				$sum = eval join '+', @nodes;
 				$sum += 0;
-				print $aspect,"-",$severity,": ",$sum,"\n";
+
+				if ($severity eq "error")	{
+					$sum_err = $sum;
+				}
+				elsif ($severity eq "drop")	{
+					$sum_dr = $sum;
+				}
+				elsif ($severity eq "warn" or $severity eq "info") {
+					print $aspect,"-",$severity,":",$sum," ";
+				}
         }
+		print $aspect,"-error-drop:",$sum_err+$sum_dr," ";
 }
 foreach my $category (@categories) {
-        foreach my $severity (@severities) {
+		my $sum_err;
+		my $sum_dr;
+		foreach my $severity (@severities) {
                 my $xpath  = "//entry[category/text() = '$category' and severity/text() = '$severity']/value/text()"; # xpath_expression (query)
                 my $sum = 0;
 				# findvalue function from XML::LibXML::Node Package
 				my @nodes = $xmlfile->findnodes($xpath);
 				$sum = eval join '+', @nodes;
 				$sum += 0;
-				print $category,"-",$severity,": ",$sum,"\n";
+
+				if ($severity eq "error")	{
+					$sum_err = $sum;
+				}
+				elsif ($severity eq "drop")	{
+					$sum_dr = $sum;
+				}
+				elsif ($severity eq "warn" or $severity eq "info") {
+					print $category,"-",$severity,":",$sum," ";
+				}
         }
+		print $category,"-error-drop:",$sum_err+$sum_dr," ";
 }
 print "\n";
