@@ -16,20 +16,22 @@
 # In the output is your key.
 # Step 2.
 # After that just test it like this example (change the IP the key and the interfacename for you!):
-# $ ./get_pa_global_counters.pl 10.13.13.1 qeUcrTG9Cdjc0QnU
+# $ ./get_pa_global_counters.pl 10.13.13.1 qeUcrTG9Cdjc0QnU category appid ctd flow fpga nat url
 #
 # Syntax:
 # -------
-# $ ./get_pa_global_counters.pl <IP> <Key>
+# $ ./get_pa_global_counters.pl <IP> <Key> <Type> <type element1> <type entry2> <type entry3> <type entry4> <type entry5>
 #
 # Mandatory arguments:
 # --------------------
-# <IP> : The IP of the cisco asa firewall.
-# <Key> : Key for https login.
+# <IP> 				: The IP of the cisco asa firewall.
+# <Key>				: Key for https login.
+# <type>			: Type as category or aspect
+# <element1>		: List of elements (max. 5)
 #
 # Example:
 # --------
-# $ ./get_pa_global_counters.pl 10.13.13.1 qeUcrTG9Cdjc0QnU
+# $ ./get_pa_global_counters.pl 10.13.13.1 qeUcrTG9Cdjc0QnU category appid ctd flow fpga nat url
 # -----------------------------------------------------------------------------------------------
 # Known issues:
 #
@@ -48,16 +50,18 @@ use LWP::UserAgent;
 use HTTP::Request;
 use XML::LibXML;
 
-my $hostname    =       $ARGV[0]; # IP of the firewall
-my $httpskey    =       $ARGV[1]; # example 'vcxvert4rhhgfhf'
+my $hostname    = $ARGV[0]; # IP of the firewall
+my $httpskey    = $ARGV[1]; # example 'vcxvert4rhhgfhf'
+my $type		= $ARGV[2]; # example 'category'
+my @typeentries	= ($ARGV[3],$ARGV[4],$ARGV[5],$ARGV[6],$ARGV[7]);
+
 # command without URL encoding
-my $command             =       "<show><counter><global><filter><delta>yes</delta></filter></global></counter></show>";
+my $command		= "<show><counter><global><filter><delta>yes</delta></filter></global></counter></show>";
 # command with URL encoding. See http://url-encoder.de/
-my $urlcommand = uri_escape($command);
-my $URL = 'https://'.$hostname.'/api/?type=op&key='.$httpskey.'&cmd='.$urlcommand;
+my $urlcommand	= uri_escape($command);
+my $URL			= 'https://'.$hostname.'/api/?type=op&key='.$httpskey.'&cmd='.$urlcommand;
 
 # aspects
-# awk '{print $5,$4,$1}' pa_counters_test.txt | sort -k3,3 -k2,2 | cut -d" " -f1,2 | sort | uniq -c | awk '{print $2,$3,$1}'
 #  aa         HA Active/Active mode
 #  arp        ARP procesing
 #  dos        DoS protection
@@ -79,7 +83,6 @@ my $URL = 'https://'.$hostname.'/api/?type=op&key='.$httpskey.'&cmd='.$urlcomman
 my @aspects     = ("aa","arp","dos","forward","ipfrag","ipsec","mgmt","mld","nd","offload","parse","pktproc","qos","resource","session","system","tunnel");
 
 # categories
-# awk '{print $6,$4,$1}' pa_counters_test.txt | sort -k3,3 -k2,2 | cut -d" " -f1,2 | sort | uniq -c | awk '{print $2,$3,$1}'
 #  aho       AHO match engine
 #  appid     Application-Identification
 #  ctd       Content-Identification
@@ -128,55 +131,38 @@ elsif ($response->is_error){
 my $parser = XML::LibXML->new();
 #load_xml function from XML::LibXML::Parser Package
 my $xmlfile = XML::LibXML->load_xml(string => $xml_string);
+my $outid = 1;
 
-foreach my $aspect (@aspects) {
-		my $sum_err;
-		my $sum_dr;
-		foreach my $severity (@severities) {
-                my $xpath  = "//entry[aspect/text() = '$aspect' and severity/text() = '$severity']/value/text()"; # xpath_expression (query)
-                my $sum = 0;
-				# findnodes function from XML::LibXML::Node Package
-                my @nodes = $xmlfile->findnodes($xpath);
-				#foreach my $value (@nodes) {
-				#	$sum += $value;
-				#}
-				# did not work... :-(, have to use eval join.
-				$sum = eval join '+', @nodes;
-				$sum += 0;
+foreach my $typeentry (@typeentries) {
+	my $sum_err;
+	my $sum_dr;
+	foreach my $severity (@severities) {
+		my $xpath  = "//entry[$type = '$typeentry' and severity = '$severity']/value/text()"; # xpath_expression (query)
+		my $sum = 0;
+		my @nodes;
+		# findnodes function from XML::LibXML::Node Package
+		# have to convert to string, since XML::Libxml version change....
+		foreach my $node ($xmlfile->findnodes($xpath)) {
+			push(@nodes,$node->toString);
+		}
+		#foreach my $value (@nodes) {
+		#	$sum += $value;
+		#}
+		# did not work... :-(, have to use eval join.
+		$sum = eval join '+', @nodes;
+		$sum += 0;
 
-				if ($severity eq "error")	{
-					$sum_err = $sum;
-				}
-				elsif ($severity eq "drop")	{
-					$sum_dr = $sum;
-				}
-				elsif ($severity eq "warn" or $severity eq "info") {
-					print $aspect,"-",$severity,":",$sum," ";
-				}
-        }
-		print $aspect,"-error-drop:",$sum_err+$sum_dr," ";
-}
-foreach my $category (@categories) {
-		my $sum_err;
-		my $sum_dr;
-		foreach my $severity (@severities) {
-                my $xpath  = "//entry[category/text() = '$category' and severity/text() = '$severity']/value/text()"; # xpath_expression (query)
-                my $sum = 0;
-				# findvalue function from XML::LibXML::Node Package
-				my @nodes = $xmlfile->findnodes($xpath);
-				$sum = eval join '+', @nodes;
-				$sum += 0;
-
-				if ($severity eq "error")	{
-					$sum_err = $sum;
-				}
-				elsif ($severity eq "drop")	{
-					$sum_dr = $sum;
-				}
-				elsif ($severity eq "warn" or $severity eq "info") {
-					print $category,"-",$severity,":",$sum," ";
-				}
-        }
-		print $category,"-error-drop:",$sum_err+$sum_dr," ";
+		if ($severity eq "error")	{
+			$sum_err = $sum;
+		}
+		elsif ($severity eq "drop")	{
+			$sum_dr = $sum;
+		}
+		elsif ($severity eq "warn" or $severity eq "info") {
+			print "typeentry".$outid.$severity.":".$sum." ";
+		}
+	}
+	print "typeentry".$outid."error-drop:",$sum_err+$sum_dr," ";
+	$outid += 1;
 }
 print "\n";
