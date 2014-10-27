@@ -134,7 +134,7 @@ foreach my $interface (@interfaces) {
 		my $val = $xmlfile->findvalue($xpath);
 		
 		if ($if_counter =~ m/bytes/ or $if_counter =~ m/packets/)	{
-			print "if".$outid."-".$if_counter.": ".$val." ";
+			print "if".$outid."-".$if_counter.":".$val." ";
 		}
 		elsif ($if_counter eq "ierrors" or $if_counter eq "ifwderrors")	{
 			$sum_err += $val;
@@ -149,10 +149,10 @@ foreach my $interface (@interfaces) {
 			$sum_att += $val;
 		}
 	}
-	print "if".$outid."-err: ".$sum_err." ";
-	print "if".$outid."-drp: ".$sum_drp." ";
-	print "if".$outid."-nonet: ".$sum_nonet." ";
-	print "if".$outid."-att: ".$sum_att." ";
+	print "if".$outid."-err:".$sum_err." ";
+	print "if".$outid."-drp:".$sum_drp." ";
+	print "if".$outid."-nonet:".$sum_nonet." ";
+	print "if".$outid."-att:".$sum_att." ";
 	$outid += 1;
 }
 print "\n";
